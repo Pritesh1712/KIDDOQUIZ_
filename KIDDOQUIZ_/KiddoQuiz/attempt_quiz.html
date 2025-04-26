@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+    <title>Attempt Quiz</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            margin-top: 100px;
+        }
+
+        h1 {
+            color: #000000;
+        }
+
+        input {
+            padding: 10px;
+            font-size: 16px;
+            width: 250px;
+            margin: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-top: 5%;
+        }
+
+        .start-btn {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-top: 2%;
+        }
+        .start-btn:hover {
+            background-color: #218838;
+        }
+
+        .countdown {
+            font-size: 24px;
+            font-weight: bold;
+            color: #36970f;
+            display: none;
+            margin-top: 20px;
+        }
+
+        .participant-count {
+            font-size: 20px;
+            margin-top: 20px;
+        }
+
+        .waiting-message {
+            color: #666;
+            font-style: italic;
+            margin-top: 10px;
+        }
+    </style>
+<script>
+    const socket = io("http://localhost:3000", {
+        reconnectionAttempts: 3,
+        timeout: 5000
+    });
+
+    let roomId = '';
+    let username = '';
+    let isHost = false;
+    let roomFull = false;
+
+    // Connection error handling
+    socket.on("connect_error", (err) => {
+        console.error("Connection error:", err);
+        showError("Could not connect to server. Please refresh the page.");
+    });
+
+    function joinRoom() {
+        username = document.getElementById("username").value.trim();
+        roomId = document.getElementById("quiz_id").value.trim();
+
+        if (!username || !roomId) {
+            showError("Please enter both Name and Quiz ID.");
+            return;
+        }
+
+        const joinBtn = document.getElementById("startButton");
+        joinBtn.disabled = true;
+        joinBtn.textContent = "Joining...";
+
+        // Save to localStorage
+        localStorage.setItem("username", username);
+        localStorage.setItem("quiz_id", roomId);
+
+        socket.emit("join_room", { roomId, username });
+    }
+
+    socket.on("room_update", (data) => {
+        console.log("Room update:", data);
+        const joinBtn = document.getElementById("startButton");
+        const participantCount = document.getElementById("participantCount");
+        
+        participantCount.innerText = 
+            `Participants: ${data.participants.length}/${data.max_participants}`;
+        
+        // Check if room is full
+        if (data.participants.length >= data.max_participants) {
+            roomFull = true;
+            joinBtn.disabled = true;
+            
+            // First participant is host
+            if (data.participants[0].username === username) {
+                isHost = true;
+                joinBtn.textContent = "Start Quiz";
+                joinBtn.onclick = startQuiz;
+                joinBtn.disabled = false;
+            } else {
+                joinBtn.textContent = "Waiting for host to start...";
+            }
+        } else {
+            roomFull = false;
+            joinBtn.textContent = "Join Quiz";
+            joinBtn.onclick = joinRoom;
+            joinBtn.disabled = false;
+        }
+    });
+
+    socket.on("join_error", (message) => {
+        console.error("Join error:", message);
+        showError(message);
+
+        const joinBtn = document.getElementById("startButton");
+        joinBtn.disabled = true;
+        joinBtn.textContent = "Room Full";
+        joinBtn.onclick = null;
+    });
+
+    socket.on("quiz_started", () => {
+        console.log("Quiz started by host");
+        startCountdown();
+    });
+
+    function startQuiz() {
+        if (!isHost) return;
+        console.log("Host starting quiz...");
+        
+        const joinBtn = document.getElementById("startButton");
+        joinBtn.disabled = true;
+        joinBtn.textContent = "Starting Quiz...";
+        
+        socket.emit("start_quiz", roomId);
+    }
+
+    function startCountdown() {
+        let countdownElement = document.getElementById("countdown");
+        let startButton = document.getElementById("startButton");
+        let count = 3;
+
+        countdownElement.style.display = "block";
+        startButton.style.display = "none";
+
+        let interval = setInterval(() => {
+            countdownElement.innerText = count;
+            count--;
+            if (count < 0) {
+                clearInterval(interval);
+                countdownElement.innerText = "Quiz Started...";
+                setTimeout(() => {
+                    window.location.href = `quiz_questions.html?quiz_id=${roomId}&username=${username}`;
+                }, 1000);
+            }
+        }, 1000);
+    }
+
+    async function submitQuiz(score, timeTaken) {
+        const quiz_id = localStorage.getItem("quiz_id");
+        // const username = document.getElementById("username").value.trim();
+                const usernameInput = document.getElementById("username");
+        if (!usernameInput) {
+            console.error("Username input field not found!");
+            return;
+        }
+        
+        const username = usernameInput.value.trim();
+
+        try {
+            const response = await fetch('/api/attempt', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    quiz_id: quiz_id,
+                    username: username,
+                    score: score,
+                })
+            });
+
+            const data = await response.json();
+            
+            if (response.ok) {
+                console.log('Attempt saved successfully:', data);
+                // Redirect to results/leaderboard page
+                window.location.href = `quiz_results.html?quiz_id=${quiz_id}&username=${username}`;
+            } else {
+                console.error('Failed to save attempt:', data.error);
+                alert('Error saving your results. Please try again.');
+            }
+        } catch (error) {
+            console.error('Error submitting quiz:', error);
+            alert('Network error. Please check your connection.');
+        }
+    }
+
+    function showError(message) {
+        const errorElement = document.getElementById("error-message");
+        errorElement.textContent = message;
+        errorElement.style.display = "block";
+        setTimeout(() => {
+            errorElement.style.display = "none";
+        }, 5000);
+    }
+</script>
+</head>
+<body>
+  <div class="container">
+    <h1>Attempt Quiz</h1>
+    <input type="text" id="username" placeholder="Enter Your Name" required /><br />
+    <input type="text" id="quiz_id" placeholder="Enter Quiz ID" required /><br />
+    <button class="start-btn" id="startButton" onclick="joinRoom()">Join Quiz</button>
+    <div id="countdown" class="countdown"></div>
+    <div id="waiting-message" class="waiting-message" style="display: none;">
+        Waiting for host to start the quiz...
+    </div>
+    <div class="participant-count" id="participantCount">Participants Joined: 0</div>
+    <div id="error-message" style="color: red; margin-top: 10px;"></div>
+  </div>
+</body>
+</html>

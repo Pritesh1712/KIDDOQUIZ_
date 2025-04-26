@@ -1,0 +1,279 @@
+
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+  <title>KiddoQuiz - Attempt Quiz</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body {
+      font-family: 'Comic Sans MS', cursive, sans-serif;
+      background: linear-gradient(to right, #fbc2eb, #a6c1ee);
+      margin: 0;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+
+    .quiz-container {
+      background: #fff8fc;
+      border-radius: 20px;
+      padding: 30px;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+      width: 90%;
+      max-width: 700px;
+      text-align: center;
+    }
+
+    h1 {
+      margin-top: 0;
+      color: #4c0070;
+    }
+
+    .question {
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+
+    .question img {
+      max-width: 300px;
+      margin-bottom: 10px;
+    }
+
+    .options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .option-btn {
+      padding: 15px;
+      border: none;
+      border-radius: 15px;
+      background: #ffd6ec;
+      font-size: 18px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    .option-btn:hover {
+      background: #ffe3f1;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .score-container {
+      text-align: center;
+      font-size: 24px;
+      color: #333;
+    }
+
+    .timer {
+      margin-bottom: 20px;
+      font-size: 20px;
+      color: #880088;
+    }
+
+    #nav-buttons {
+      margin-top: 25px;
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="quiz-container" id="quiz-box">
+    <h1>🎉 Let's Play a Quiz! 🎉</h1>
+    <div class="timer" id="timer">Time Left: 60s</div>
+    <div id="question-box"></div>
+    <div id="nav-buttons">
+      <button id="prev-btn" class="option-btn">⬅️ Previous</button>
+      <button id="next-btn" class="option-btn">Next ➡️</button>
+      <button id="submit-btn" class="option-btn hidden">✅ Submit</button>
+    </div>
+  </div>
+
+  <div class="score-container hidden" id="score-box">
+    <h2>🎊 Great Job! 🎊</h2>
+    <p id="final-score">You scored 0/0</p>
+    <p>🌟 Keep learning and shining! 🌟</p>
+    <button id="home-btn" class="option-btn">🏠 Go to Home</button>
+  </div>
+
+  <script>
+    const quiz_id = localStorage.getItem('quiz_id');
+    const questionBox = document.getElementById('question-box');
+    const quizBox = document.getElementById('quiz-box');
+    const scoreBox = document.getElementById('score-box');
+    const finalScore = document.getElementById('final-score');
+    const timerDisplay = document.getElementById('timer');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const submitBtn = document.getElementById('submit-btn');
+
+    
+    let currentQuestionIndex = 0;
+    let score = 0;
+    let questions = [];
+    let selectedOptions = [];
+    let timer;
+    let timeLeft;
+
+    function formatTime(seconds) {
+      const m = Math.floor(seconds / 60);
+      const s = seconds % 60;
+      return `${m}:${s < 10 ? '0' : ''}${s}`;
+    }
+
+    async function fetchQuizDetails() {
+      try {
+        const quizRes = await fetch(`http://localhost:3000/api/quiz/${quiz_id}`);
+        const quizData = await quizRes.json();
+        console.log("⏱️ Time allowed:", quizData.max_time);
+        timeLeft = Number(quizData.max_time) || 60; // fallback to 60 seconds if not set
+        startTimer();
+        fetchQuestions();
+      } catch (err) {
+        console.error("Failed to load quiz:", err);
+        questionBox.innerHTML = "<p>Failed to load quiz details.</p>";
+      }
+    }
+
+    async function fetchQuestions() {
+      try {
+        const res = await fetch(`http://localhost:3000/api/question/fetch/${quiz_id}`);
+        questions = await res.json();
+        console.log("✅ Questions received:", questions);
+
+        if (!Array.isArray(questions) || questions.length === 0) {
+          questionBox.innerHTML = "<p>No questions available for this quiz.</p>";
+          document.getElementById('nav-buttons').classList.add('hidden');
+          return;
+        }
+
+        selectedOptions = Array(questions.length).fill(null);
+        showQuestion();
+      } catch (err) {
+        console.error("❌ Failed to load questions:", err);
+        questionBox.innerHTML = "<p>Failed to load questions.</p>";
+      }
+    }
+
+    function startTimer() {
+      timerDisplay.textContent = `Time Left: ${formatTime(timeLeft)}`;
+      timer = setInterval(() => {
+        timeLeft--;
+        timerDisplay.textContent = `Time Left: ${formatTime(timeLeft)}`;
+        if (timeLeft <= 0) {
+          clearInterval(timer);
+          endQuiz();
+        }
+      }, 1000);
+    }
+
+    function showQuestion() {
+      if (!questions[currentQuestionIndex]) {
+        questionBox.innerHTML = "<p>Question not found.</p>";
+        return;
+      }
+
+      const question = questions[currentQuestionIndex];
+      const { questionText, questionImage, options } = question;
+
+      let html = `<div class="question">`;
+      if (questionImage) html += `<img src="${questionImage}" alt="question image"/>`;
+      if (questionText) html += `<p>${questionText}</p>`;
+      html += `</div><div class="options">`;
+
+      options.forEach((opt, idx) => {
+        const selected = selectedOptions[currentQuestionIndex] === idx ? 'style="background:#ffc0f0;"' : '';
+        if (opt.image) {
+          html += `<button class="option-btn" ${selected} onclick="selectOption(${idx})"><img src="${opt.image}" style="max-width:100px"/></button>`;
+        } else {
+          html += `<button class="option-btn" ${selected} onclick="selectOption(${idx})">${opt.text}</button>`;
+        }
+      });
+
+      html += `</div>`;
+      questionBox.innerHTML = html;
+
+      prevBtn.disabled = currentQuestionIndex === 0;
+      nextBtn.classList.toggle("hidden", currentQuestionIndex === questions.length - 1);
+      submitBtn.classList.toggle("hidden", currentQuestionIndex !== questions.length - 1);
+    }
+
+    function selectOption(selectedIndex) {
+      selectedOptions[currentQuestionIndex] = selectedIndex;
+      showQuestion(); // to update highlight
+    }
+
+    async function endQuiz() {
+  clearInterval(timer);
+  questions.forEach((q, idx) => {
+    if (selectedOptions[idx] === q.correctOption) score++;
+  });
+
+  // Show result to user
+  quizBox.classList.add('hidden');
+  scoreBox.classList.remove('hidden');
+  finalScore.textContent = `You scored ${score}/${questions.length}`;
+
+  // 🔽 Save result to backend
+  const username = localStorage.getItem("username");
+  const quiz_id = localStorage.getItem("quiz_id");
+
+  if (!username || !quiz_id) {
+    console.warn("Missing username or quiz_id for attempt saving.");
+    return;
+  }
+
+  try {
+    const res = await fetch("http://localhost:3000/api/attempt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        quiz_id: quiz_id,
+        username: username,
+        score: score
+      })
+    });
+
+    const result = await res.json();
+    console.log("✅ Attempt saved:", result);
+  } catch (err) {
+    console.error("❌ Failed to save attempt:", err);
+  }
+}
+
+
+    prevBtn.addEventListener("click", () => {
+      if (currentQuestionIndex > 0) {
+        currentQuestionIndex--;
+        showQuestion();
+      }
+    });
+
+    nextBtn.addEventListener("click", () => {
+      if (currentQuestionIndex < questions.length - 1) {
+        currentQuestionIndex++;
+        showQuestion();
+      }
+    });
+    document.getElementById("home-btn").addEventListener("click", () => {
+      window.location.href = "index.html";
+    });
+
+    submitBtn.addEventListener("click", endQuiz);
+
+    fetchQuizDetails();
+  </script>
+</body>
+</html>

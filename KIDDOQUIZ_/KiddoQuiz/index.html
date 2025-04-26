@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>kiddoQuiz</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+    <style>
+        /* Your CSS styles here */
+        * {
+            margin: 0%;
+            padding: 0%;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            background-size: cover;
+            width: 100%;
+            height: 100%;
+            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        a {
+            color: black;
+            text-decoration: none;
+        }
+
+        a:hover {
+            color: cadetblue;
+        }
+
+        #main {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #header {
+            width: 100%;
+            height: 20vh;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            border-bottom: 1px black solid;
+            background-color: white;
+            z-index: 100;
+        }
+
+        #header div h4 {
+            font-size: 18px;
+        }
+
+        #center-image {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 30vh;
+        }
+
+        #center-image img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        #about {
+            background-color: #f4f4f4;
+            padding: 30px;
+            margin-top: 50px;
+            text-align: center;
+        }
+
+        #about h2 {
+            font-size: 24px;
+            margin-bottom: 15px;
+        }
+
+        #about p {
+            font-size: 16px;
+            color: #333;
+        }
+
+        #quiz-leaderboard {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 40px;
+        }
+
+        .quiz-leaderboard-box {
+            background-color: #f3f17e;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            width: 200px;
+        }
+
+        .quiz-leaderboard-box h3 {
+            font-size: 22px;
+            margin-bottom: 15px;
+        }
+
+        .quiz-leaderboard-box a {
+            font-size: 18px;
+            color: white;
+            background-color: #1e90ff;
+            padding: 10px;
+            border-radius: 5px;
+            display: inline-block;
+            text-decoration: none;
+        }
+
+        .quiz-leaderboard-box a:hover {
+            background-color: #4682b4;
+        }
+
+        /* Login Message Styles */
+        #login-message {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+            z-index: 1000;
+            text-align: center;
+            max-width: 80%;
+            width: 400px;
+        }
+
+        #login-message h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 24px;
+        }
+
+        #login-message p {
+            color: #666;
+            margin-bottom: 25px;
+            font-size: 16px;
+        }
+
+        .message-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .message-button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+
+        .message-button.login {
+            background-color: #1e90ff;
+            color: white;
+        }
+
+        .message-button.login:hover {
+            background-color: #187bcd;
+        }
+
+        .message-button.cancel {
+            background-color: #f1f1f1;
+            color: #333;
+        }
+
+        .message-button.cancel:hover {
+            background-color: #ddd;
+        }
+
+        /* Overlay */
+        #overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 999;
+        }
+        #logout-button{
+            display: none;
+            background-color: rgb(209, 37, 37);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        #logout-button:hover {
+            background-color: darkred;
+        }
+        #success-message {
+          display: none;
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          background-color: white;
+          padding: 30px;
+          border-radius: 10px;
+          box-shadow: 0 0 20px rgba(0,0,0,0.3);
+          z-index: 1001;
+          text-align: center;
+          max-width: 80%;
+          width: 400px;
+        }
+
+        #success-message h3 {
+          color: green;
+          margin-bottom: 15px;
+          font-size: 24px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="main">
+        <div id="header">
+            <div id="logo">
+                <img src="Colorful_Cute_Kids_Playground___Kindergarten_Logo-removebg-preview.png" width="150px">
+            </div>
+            <div id="box1">
+                <h4><a href="index.html">HOME</a></h4>
+            </div>
+            <div id="box2">
+                <h4><a href="quiz.html" onclick="return checkAuth('quiz.html')">QUIZ</a></h4>
+            </div>
+            <div id="box3">
+                <h4><a href="leaderboard.html" onclick="return checkAuth('leaderboard.html')">LEADERBOARD</a></h4>
+            </div>
+            <div id="box4">
+                <h4><a href="#">ABOUT</a></h4>
+            </div>
+            <div id="box5">
+                <h4 id="login-or-logout"><a href="login.html"><i class="fa-regular fa-user"></i> LOGIN</a></h4>
+            </div>
+            <button id="logout-button" onclick="logout()">Logout</button>
+        </div>
+
+        <div id="center-image">
+            <img src="7y55_n9zq_220329.jpg" alt="Quiz Image" width="500px">
+        </div>
+
+        <div id="quiz-leaderboard">
+            <div class="quiz-leaderboard-box">
+                <h3>Start Quiz</h3>
+                <a onclick="return checkAuth('quiz.html')">Go to Quiz</a>
+            </div>
+            <div class="quiz-leaderboard-box">
+                <h3>Leaderboard</h3>
+                <a onclick="return checkAuth('leaderboard.html')">View Leaderboard</a>
+            </div>
+        </div>
+
+        <div id="about">
+            <h2>About KiddoQuiz</h2>
+            <p>
+                KiddoQuiz is an educational platform designed for children. It aims to make learning fun and interactive
+                through quizzes, games, and challenges. With engaging visuals and a friendly interface, children can test
+                their knowledge and improve their learning skills while having fun!
+            </p>
+        </div>
+    </div>
+
+    <div id="overlay"></div>
+    <div id="login-message">
+        <h3>Login Required</h3>
+        <p>You need to login to access this page.</p>
+        <div class="message-buttons">
+            <button class="message-button login" onclick="window.location.href='login.html'">Go to Login</button>
+            <button class="message-button cancel" onclick="hideLoginMessage()">Close</button>
+        </div>
+    </div>
+    <div id="success-message">
+        <h3>Login Successful!</h3>
+        <p>You have successfully logged in.</p>
+        <button onclick="window.location.href='index.html'">Go to Home</button>
+    </div>
+
+    <script>
+        function checkAuth(page) {
+            if (!localStorage.getItem('kiddoquiz_token')) {
+                showLoginMessage();
+                return false;
+            }
+            window.location.href = page;
+            return true;
+        }
+    
+        function showLoginMessage() {
+            document.getElementById('overlay').style.display = 'block';
+            document.getElementById('login-message').style.display = 'block';
+        }
+    
+        function hideLoginMessage() {
+            document.getElementById('overlay').style.display = 'none';
+            document.getElementById('login-message').style.display = 'none';
+        }
+    
+        // Function to show the success message
+        function showSuccessMessage() {
+            document.getElementById('success-message').style.display = 'block';
+            document.getElementById('overlay').style.display = 'block';
+        }
+    
+        // Check if user is logged in on page load
+        window.onload = function () {
+            if (localStorage.getItem('kiddoquiz_token')) {
+                document.getElementById('login-or-logout').style.display = 'none';
+                document.getElementById('logout-button').style.display = 'block';
+            } else {
+                document.getElementById('login-or-logout').style.display = 'block';
+                document.getElementById('logout-button').style.display = 'none';
+            }
+    
+            // Show success message if login was successful
+            if (localStorage.getItem('showSuccessMessage') === 'true') {
+                showSuccessMessage();
+                localStorage.removeItem('showSuccessMessage'); // Remove it so it doesn't show again
+            }
+        };
+    
+        function logout() {
+            localStorage.removeItem('kiddoquiz_token');
+            document.getElementById('login-or-logout').style.display = 'block';
+            document.getElementById('logout-button').style.display = 'none';
+        }
+    </script>    
+    <script>
+        const socket = io('http://localhost:3001');
+        socket.on('connect', () => {
+          console.log('🟢 Connected to Socket.IO server!');
+        });
+    </script>
+</body>
+</html>

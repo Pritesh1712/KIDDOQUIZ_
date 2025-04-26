@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="pages/groove_iconcopy.ico">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Poppins", sans-serif;
+        }
+
+        body {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: url("pages/login_bg.gif");
+            background-repeat: no-repeat;
+            background-size: cover;
+        }
+
+        .login {
+            width: 380px;
+            padding: 40px 30px 50px 30px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 5px;
+            text-align: center;
+            box-shadow: 10px 10px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .login header {
+            font-size: 35px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        form {
+            margin: 40px 0;
+        }
+
+        form .field {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        form .field .input-area {
+            height: 50px;
+            width: 100%;
+            position: relative;
+        }
+
+        form input {
+            width: 100%;
+            height: 100%;
+            outline: none;
+            padding: 0 45px;
+            font-size: 18px;
+            border-radius: 5px;
+            border: 1px solid #080808;
+            border-bottom-width: 2px;
+            transition: all 0.2s ease;
+        }
+
+        .field .input-area i {
+            position: absolute;
+            top: 50%;
+            font-size: 18px;
+            pointer-events: none;
+            transform: translateY(-50%);
+        }
+
+        .input-area .icon {
+            left: 15px;
+            color: #bfbfbf;
+            transition: color 0.2s ease;
+        }
+
+        form input::placeholder {
+            color: #bfbfbf;
+            font-size: 17px;
+        }
+
+        form input[type="submit"] {
+            height: 50px;
+            margin-top: 30px;
+            color: #fff;
+            border: none;
+            background: black;
+            cursor: pointer;
+            transition: all 0.7s ease;
+        }
+
+        form input[type="submit"]:hover {
+            background: rgb(112, 104, 104);
+        }
+
+        .back_button {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+        }
+
+        .previous_btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #000;
+        }
+
+        .signup_link {
+            color: #080808;
+            margin-top: 20px;
+            display: block;
+            text-decoration: none;
+        }
+
+        .error-message {
+            color: #dc3545;
+            margin-top: 10px;
+            display: none;
+        }
+
+        /* Success Message Styles */
+        #successMessage {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        #successMessage p {
+            color: green;
+            font-size: 18px;
+            font-weight: bold;
+            margin : 10px;
+        }
+
+        #successMessage button {
+            padding: 10px 20px;
+            background: black;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        #successMessage button:hover {
+            background: rgb(112, 104, 104);
+        }
+    </style>
+    <title>User Login</title>
+</head>
+<body>
+    <div class="back_button">
+        <button class="previous_btn" onclick="window.location.href='index.html'">
+            <i class="fas fa-arrow-left"></i>
+        </button>
+    </div>
+
+    <div class="login">
+        <header>LOGIN</header>
+        <form id="loginForm">
+            <div class="field email">
+                <div class="input-area">
+                    <input type="email" placeholder="Email Address" id="email" name="email" required>
+                    <i class="icon fas fa-envelope"></i>
+                </div>
+            </div>
+            <div class="field password">
+                <div class="input-area">
+                    <input type="password" placeholder="Password" id="password" name="password" required>
+                    <i class="icon fas fa-lock"></i>
+                </div>
+            </div>
+            <input type="submit" value="Login">
+            <div id="errorMessage" class="error-message"></div>
+        </form>
+
+        <!-- Success Message (Initially Hidden) -->
+        <div id="successMessage">
+            <p>You are successfully logged in!</p>
+            <button onclick="window.location.href='/index.html'">Go to Homepage</button>
+        </div>
+
+        <a class="signup_link" href="signup.html">New User? Sign Up Here</a>
+    </div>
+
+    <script>
+        document.getElementById("loginForm").addEventListener("submit", async (event) => {
+            event.preventDefault();
+            
+            const email = document.getElementById("email").value;
+            const password = document.getElementById("password").value;
+            const errorMessage = document.getElementById("errorMessage");
+            const successMessage = document.getElementById("successMessage");
+            const submitButton = document.querySelector("input[type='submit']");
+            const loginForm = document.getElementById("loginForm");
+            
+            // Show loading state
+            submitButton.value = "Logging in...";
+            submitButton.disabled = true;
+            errorMessage.style.display = "none";
+            successMessage.style.display = "none";
+            
+            try {
+                const response = await fetch("http://localhost:3000/api/auth/login", {
+                    method: "POST",
+                    headers: { 
+                        "Content-Type": "application/json" 
+                    },
+                    body: JSON.stringify({ 
+                        email: email.trim(),
+                        password: password.trim()
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Store the token and user data
+                    localStorage.setItem("kiddoquiz_token", data.token);
+                    localStorage.setItem("kiddoquiz_user", JSON.stringify(data.user));
+                    
+                    // Show success message and hide form
+                    loginForm.style.display = "none";
+                    successMessage.style.display = "block";
+                    
+                    // Update the success message button to go to createquiz.html
+                    const successButton = successMessage.querySelector("button");
+                    successButton.onclick = function() {
+                        window.location.href = "index.html";
+                    };
+                    
+                } else {
+                    errorMessage.textContent = data.message || "Login failed. Please check your credentials.";
+                    errorMessage.style.display = "block";
+                }
+            } catch (error) {
+                errorMessage.textContent = "Cannot connect to server. Please try again later.";
+                errorMessage.style.display = "block";
+                console.error("Login error:", error);
+            } finally {
+                submitButton.value = "Login";
+                submitButton.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Quiz</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            height: 100%;
+            margin: 0;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 1000px;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        label {
+            font-size: 16px;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        input[type="text"], input[type="number"], input[type="file"], select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            display: inline-block;
+        }
+
+        .question-group {
+            margin-bottom: 15px;
+        }
+
+        .options {
+            margin-bottom: 10px;
+        }
+
+        .option-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            gap: 10px;
+        }
+
+        .option-group label {
+            margin-right: 10px;
+        }
+
+        .option-group input[type="text"], .option-group select {
+            margin-right: 10px;
+        }
+
+        .option-group .image-upload {
+            display: inline-block;
+        }
+
+        .step-button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .step-button:hover {
+            background-color: #0056b3;
+        }
+
+        .submit-btn {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            display: none;
+            margin-top: 10px;
+        }
+
+        .submit-btn:hover {
+            background-color: #45a049;
+        }
+
+        .step-container {
+            display: none;
+        }
+
+        .step-container.active {
+            display: block;
+        }
+
+        .success-box {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: 350px;
+            height: 250px;
+            background: white;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            text-align: center;
+            padding: 20px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .redirect-btn {
+            margin-top: 25px;
+            padding: 12px 25px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .redirect-btn:hover {
+            background-color: #0056b3;
+        }
+
+        .error-message {
+            color: #dc3545;
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Create a New Quiz</h2>
+        <div id="error-message" class="error-message"></div>
+
+        <div class="step-container active" id="step-1">
+            <div>
+                <label for="quiz_id">Quiz ID</label>
+                <input type="text" id="quiz_id" placeholder="Enter Quiz ID" required>
+
+                <label for="num_questions">Number of Questions</label>
+                <input type="number" id="num_questions" placeholder="Enter the number of questions" required min="1">
+
+                <label for="max_time">Max Time Allowed (minutes)</label>
+                <input type="number" id="max_time" placeholder="Enter max time allowed" required min="1">
+
+                <label for="max_participants">Number of Participants</label>
+                <input type="number" id="max_participants" placeholder="Enter the number of participants" required min="1">
+
+                <button type="button" class="step-button" onclick="startQuestionCreation()">Next</button>
+            </div>
+        </div>
+
+        <div class="step-container" id="step-2">
+            <div id="question-form">
+            </div>
+            <button type="button" class="step-button" id="next-question-btn" onclick="nextQuestion()">Next Question</button>
+            <button type="button" class="submit-btn" id="submit-quiz-btn" onclick="submitQuiz()">Submit Quiz</button>
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 1;
+        let totalQuestions = 0;
+        let currentQuestionIndex = 1;
+        let quizData = [];
+
+        function showError(message) {
+            const errorElement = document.getElementById('error-message');
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+            setTimeout(() => {
+                errorElement.style.display = 'none';
+            }, 5000);
+        }
+
+        function startQuestionCreation() {
+            // Basic validation
+            const quiz_id = document.getElementById('quiz_id').value;
+            const numQuestions = document.getElementById('num_questions').value;
+            const maxTime = document.getElementById('max_time').value;
+            const max_participants = document.getElementById('max_participants').value;
+
+            if (!quiz_id || !numQuestions || !maxTime || !max_participants) {
+                showError('Please fill in all required fields');
+                return;
+            }
+
+            totalQuestions = parseInt(numQuestions);
+            if (totalQuestions < 1) {
+                showError('Number of questions must be at least 1');
+                return;
+            }
+
+            document.getElementById('step-1').classList.remove('active');
+            document.getElementById('step-2').classList.add('active');
+            
+            createQuestionForm();
+
+            // If there's only one question, hide "Next Question" button and show "Submit Quiz"
+            if (totalQuestions === 1) {
+                document.getElementById('next-question-btn').style.display = 'none';
+                document.getElementById('submit-quiz-btn').style.display = 'block';
+            }
+        }
+
+        function createQuestionForm() {
+            const questionFormContainer = document.getElementById('question-form');
+            questionFormContainer.innerHTML = `
+                <h3>Question ${currentQuestionIndex} of ${totalQuestions}</h3>
+
+                <label for="question_text_${currentQuestionIndex}">Question Text</label>
+                <input type="text" id="question_text_${currentQuestionIndex}" placeholder="Enter the question" required>
+
+                <label for="question_type_${currentQuestionIndex}">Question Type</label>
+                <select id="question_type_${currentQuestionIndex}" onchange="toggleQuestionInputType(${currentQuestionIndex})" required>
+                    <option value="text">Text</option>
+                    <option value="image">Image</option>
+                </select>
+
+                <div id="question_image_input_${currentQuestionIndex}" style="display: none;">
+                    <label for="question_image_${currentQuestionIndex}">Upload Question Image</label>
+                    <input type="file" id="question_image_${currentQuestionIndex}" accept="image/*">
+                </div>
+
+                <div class="options">
+                    <h4>Options (At least 2 required)</h4>
+                    ${generateOptionFields(currentQuestionIndex)}
+                </div>
+
+                <label for="correct_option_${currentQuestionIndex}">Correct Option</label>
+                <select id="correct_option_${currentQuestionIndex}" required>
+                    <option value="1">Option 1</option>
+                    <option value="2">Option 2</option>
+                    <option value="3">Option 3</option>
+                    <option value="4">Option 4</option>
+                </select>
+            `;
+        }
+
+        function generateOptionFields(questionIndex) {
+            let optionsHTML = '';
+            for (let i = 1; i <= 4; i++) {
+                optionsHTML += `
+                    <div class="option-group">
+                        <label for="option${i}_text_${questionIndex}">Option ${i}</label>
+                        <input type="text" id="option${i}_text_${questionIndex}" placeholder="Enter option ${i}" required}>
+                        <label for="option${i}_type_${questionIndex}">Type</label>
+                        <select id="option${i}_type_${questionIndex}" onchange="toggleOptionInputType(${questionIndex}, ${i})">
+                            <option value="text">Text</option>
+                            <option value="image">Image</option>
+                        </select>
+                        <div id="option${i}_image_input_${questionIndex}" style="display: none;">
+                            <input type="file" id="option${i}_image_${questionIndex}" accept="image/*">
+                        </div>
+                    </div>
+                `;
+            }
+            return optionsHTML;
+        }
+        
+        function nextQuestion() {
+            const questionData = getCurrentQuestionData(currentQuestionIndex);
+            if (!questionData) return;
+
+            quizData.push(questionData);
+            currentQuestionIndex++;
+            createQuestionForm();
+
+            if (currentQuestionIndex === totalQuestions) {
+                document.getElementById('next-question-btn').style.display = 'none';
+                document.getElementById('submit-quiz-btn').style.display = 'block';
+            }
+        }
+
+        function getCurrentQuestionData(index) {
+            const questionTextInput = document.getElementById(`question_text_${index}`);
+            const questionTypeInput = document.getElementById(`question_type_${index}`);
+            const correctOptionInput = document.getElementById(`correct_option_${index}`);
+
+            if (!questionTextInput || !questionTypeInput || !correctOptionInput) {
+                showError('Missing question fields');
+                return null;
+            }
+
+            const questionText = questionTextInput.value;
+            const questionType = questionTypeInput.value;
+            const correctOption = correctOptionInput.value;
+
+            const options = [];
+            for (let j = 1; j <= 4; j++) {
+                const optionTextInput = document.getElementById(`option${j}_text_${index}`);
+                const optionTypeInput = document.getElementById(`option${j}_type_${index}`);
+                if (!optionTextInput || !optionTypeInput) {
+                    showError(`Missing fields for option ${j}`);
+                    return null;
+                }
+
+                const optionText = optionTextInput.value;
+                const optionType = optionTypeInput.value;
+
+                if (!optionText) {
+                    showError(`Please fill in Option ${j} for Question ${index}`);
+                    return null;
+                }
+
+                options.push({
+                    option_text: optionText,
+                    option_type: optionType
+                });
+            }
+
+            return {
+                question_text: questionText,
+                question_type: questionType,
+                correct_option: correctOption,
+                options
+            };
+        }
+
+
+        function showSuccessScreen(quiz_id) {
+            const container = document.querySelector('.container');
+            container.innerHTML = `
+                <div class="success-box">
+                    <h2>Quiz Created Successfully</h2>
+                    <p>Your Quiz ID is: <strong>${quiz_id}</strong></p>
+                    <p>Share this ID with participants</p>
+                    <button class="redirect-btn" onclick="redirectToQuiz('${quiz_id}')">Start as Host</button>
+                </div>
+            `;
+        }
+
+        function redirectToQuiz(quiz_id) {
+            window.location.href = `attempt_quiz.html?quiz_id=${quiz_id}`;
+        }
+
+
+        // function toggleQuestionInputType(questionIndex) {
+        //     const questionType = document.getElementById(`question_type_${questionIndex}`).value;
+        //     const questionImageInput = document.getElementById(`question_image_input_${questionIndex}`);
+        //     questionImageInput.style.display = (questionType === 'image') ? 'block' : 'none';
+        // }
+        function toggleQuestionInputType(questionIndex) {
+            const questionType = document.getElementById(`question_type_${questionIndex}`).value;
+            const questionImageInput = document.getElementById(`question_image_input_${questionIndex}`);
+
+            if (questionType === 'image') {
+                questionImageInput.style.display = 'block';
+            } else {
+                questionImageInput.style.display = 'none';
+            }
+        }
+
+
+        // function toggleOptionInputType(questionIndex, optionNum) {
+        //     const optionType = document.getElementById(`option${optionNum}_type_${questionIndex}`).value;
+        //     const optionImageInput = document.getElementById(`option${optionNum}_image_input_${questionIndex}`);
+        //     optionImageInput.style.display = (optionType === 'image') ? 'inline-block' : 'none';
+        // }
+        function toggleOptionInputType(questionIndex, optionIndex) {
+            const optionType = document.getElementById(`option${optionIndex}_type_${questionIndex}`).value;
+            const imageInput = document.getElementById(`option${optionIndex}_image_input_${questionIndex}`);
+
+            if (optionType === 'image') {
+                imageInput.style.display = 'block';
+            } else {
+                imageInput.style.display = 'none';
+            }
+        }
+
+
+        async function submitQuiz() {
+            const submitBtn = document.getElementById('submit-quiz-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Creating Quiz...';
+
+            const token = localStorage.getItem('kiddoquiz_token');
+
+            if (!token) {
+                showError('Not logged in. Please log in again.');
+                window.location.href = 'login.html';
+                return;
+            }
+
+            // Get the last question data
+            const lastQuestion = getCurrentQuestionData(currentQuestionIndex);
+            if (!lastQuestion) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Quiz';
+                return;
+            }
+            quizData.push(lastQuestion);
+
+            const quiz = {
+                quiz_id: document.getElementById('quiz_id').value,
+                num_questions: totalQuestions,
+                max_time: document.getElementById('max_time').value,
+                max_participants: parseInt(document.getElementById('max_participants').value),
+                questions: quizData
+            };
+
+            try {
+                const res = await fetch('/api/quiz/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(quiz)
+                });
+
+                if (res.status === 401) {
+                    showError('Session expired. Please log in again.');
+                    localStorage.removeItem('kiddoquiz_token');
+                    window.location.href = 'login.html';
+                    return;
+                }
+
+                const data = await res.json();
+                if (res.ok) {
+                    showSuccessScreen(quiz.quiz_id);
+                } else {
+                    showError(data.message || 'Failed to create quiz');
+                }
+            } catch (err) {
+                console.error('Error:', err);
+                showError('Error creating quiz. Please try again.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Quiz';
+            }
+        }
+
+        function convertFileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result.split(',')[1]);
+                reader.onerror = (error) => reject(error);
+                reader.readAsDataURL(file);
+            });
+        }
+    </script>
+</body>
+</html>

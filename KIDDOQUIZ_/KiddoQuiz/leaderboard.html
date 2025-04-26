@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Leaderboard</title>
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f3f4f6;
+            margin: 0;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: #fff;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        h2 {
+            text-align: center;
+            color: #333;
+        }
+
+        form {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+
+        input[type="text"] {
+            padding: 0.5rem;
+            font-size: 1rem;
+            width: 200px;
+        }
+
+        button {
+            padding: 0.6rem 1rem;
+            font-size: 1rem;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 0.75rem;
+            text-align: center;
+            border-bottom: 1px solid #ccc;
+        }
+
+        th {
+            background: #007bff;
+            color: white;
+        }
+
+        .error {
+            text-align: center;
+            color: red;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Quiz Leaderboard</h2>
+
+    <form id="quiz-form">
+        <input type="text" id="quiz-id" placeholder="Enter Quiz ID" required>
+        <button type="submit">Load Leaderboard</button>
+    </form>
+
+    <div class="error" id="error-message"></div>
+
+    <table id="leaderboard" style="display: none;">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>User</th>
+                <th>Score</th>
+                <th>Submitted At</th>
+            </tr>
+        </thead>
+        <tbody id="leaderboard-body">
+            <!-- Dynamic rows here -->
+        </tbody>
+    </table>
+</div>
+
+<script>
+document.getElementById('quiz-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+
+    const quiz_id = document.getElementById('quiz-id').value.trim();
+    const errorMsg = document.getElementById('error-message');
+    const table = document.getElementById('leaderboard');
+    const tbody = document.getElementById('leaderboard-body');
+    errorMsg.textContent = '';
+    table.style.display = 'none';
+    tbody.innerHTML = '';
+
+    if (!quiz_id) {
+        errorMsg.textContent = 'Please enter a valid Quiz ID.';
+        return;
+    }
+
+    try {
+        // Replace with your actual backend API URL
+        const response = await fetch(`http://localhost:3000/api/leaderboard?quiz_id=${quiz_id}`);
+        if (!response.ok) throw new Error('Leaderboard data not found');
+
+        const data = await response.json();
+
+        if (!Array.isArray(data) || data.length === 0) {
+            errorMsg.textContent = 'No attempts found for this quiz.';
+            return;
+        }
+
+        // Sort by score DESC, then by submitted_at ASC
+        data.sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            return new Date(a.submitted_at) - new Date(b.submitted_at);
+        });
+
+        data.forEach((entry, index) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${entry.username}</td>
+                <td>${entry.score}</td>
+                <td>${new Date(entry.submitted_at).toLocaleString()}</td>
+            `;
+            tbody.appendChild(row);
+        });
+
+        table.style.display = 'table';
+    } catch (error) {
+        errorMsg.textContent = 'Error loading leaderboard. Please try again.';
+        console.error(error);
+    }
+});
+</script>
+
+</body>
+</html>
